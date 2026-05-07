@@ -57,50 +57,47 @@ with st.popover("⚙️ Cập nhật dữ liệu", use_container_width=True):
     if pwd == "Chinsu":
         tabs = st.tabs(["+ Thành viên", "+ Loài hoa", "Sở hữu", "✏️ Đổi tên"])
         
-        with tabs[2]: # SỞ HỮU CHI TIẾT
+        with tabs[2]: # SỞ HỮU
             type_edit = st.radio("Chọn kiểu cập nhật:", ["Cập nhật theo HOA", "Cập nhật theo NGƯỜI"], horizontal=True)
             st.divider()
 
             if type_edit == "Cập nhật theo HOA":
+                st.subheader("📝 Chọn hoa để xem và sửa người sở hữu")
                 f_target = st.selectbox("Chọn loài hoa:", df['Flower'].tolist())
-                idx = df[df['Flower'] == f_target].index[0]
-                cur_owners = df.at[idx, 'owners_list']
+                
+                # Tìm hàng của hoa được chọn
+                target_row = df[df['Flower'] == f_target].iloc[0]
+                # Lấy danh sách những người đang có chữ 'X' tại hàng này
+                current_owners_of_this_flower = [o for o in all_owners if str(target_row[o]).strip().upper() == 'X']
+                
                 new_sel = []
                 cols = st.columns(4)
                 for i, owner in enumerate(all_owners):
                     with cols[i % 4]:
-                        if st.checkbox(owner, value=(owner in cur_owners), key=f"f_up_{owner}"):
+                        # Checkbox sẽ được tích sẵn nếu người đó có trong danh sách sở hữu
+                        if st.checkbox(owner, value=(owner in current_owners_of_this_flower), key=f"f_up_{f_target}_{owner}"):
                             new_sel.append(owner)
+                
                 if st.button("Xác nhận Lưu (Theo Hoa)"):
+                    idx = df[df['Flower'] == f_target].index[0]
                     df_up = df.drop(columns=['owners_list']).copy()
-                    for o in all_owners: df_up.at[idx, o] = 'X' if o in new_sel else ''
+                    for o in all_owners:
+                        df_up.at[idx, o] = 'X' if o in new_sel else ''
                     conn.update(data=df_up); st.cache_data.clear(); st.rerun()
 
             else: # Cập nhật theo NGƯỜI
                 o_target = st.selectbox("Chọn người:", all_owners)
-                
-                # --- THÊM RADIO BUTTON LỌC PHẨM TRONG QUẢN LÝ ---
                 filter_type_admin = st.radio("Phẩm hoa:", ["Tất cả", "Đỏ", "Cam", "Tím", "Lam", "Lục"], horizontal=True, key="admin_filter_type")
                 
-                # Lọc danh sách hoa hiển thị dựa trên radio button
-                if filter_type_admin == "Tất cả":
-                    flowers_to_show = df
-                else:
-                    flowers_to_show = df[df['Type'] == filter_type_admin]
-
+                flowers_to_show = df if filter_type_admin == "Tất cả" else df[df['Type'] == filter_type_admin]
                 cur_flowers = df[df[o_target].astype(str).str.upper() == 'X']['Flower'].tolist()
                 
-                st.write(f"Đang hiển thị: {len(flowers_to_show)} hoa")
-                new_f_sel = list(set(cur_flowers)) # Giữ lại các hoa cũ không nằm trong danh sách đang hiển thị
-
+                new_f_sel = list(set(cur_flowers)) 
                 cols = st.columns(4)
                 for i, (f_idx, f_row) in enumerate(flowers_to_show.iterrows()):
                     f_name = f_row['Flower']
                     with cols[i % 4]:
-                        # Nếu hoa đang được chọn, checkbox sẽ tích
-                        is_checked = st.checkbox(f_name, value=(f_name in cur_flowers), key=f"o_up_{f_name}")
-                        
-                        # Cập nhật danh sách mới dựa trên thay đổi của checkbox
+                        is_checked = st.checkbox(f_name, value=(f_name in cur_flowers), key=f"o_up_{o_target}_{f_name}")
                         if is_checked:
                             if f_name not in new_f_sel: new_f_sel.append(f_name)
                         else:
@@ -111,8 +108,8 @@ with st.popover("⚙️ Cập nhật dữ liệu", use_container_width=True):
                     for i, row in df_up.iterrows():
                         df_up.at[i, o_target] = 'X' if row['Flower'] in new_f_sel else ''
                     conn.update(data=df_up); st.cache_data.clear(); st.rerun()
-        
-        # (Các tab khác giữ nguyên như cũ...)
+
+        # Giữ nguyên các tab khác theo bản chuẩn của bạn
         with tabs[0]:
              new_o = st.text_input("Tên thành viên mới")
              if st.button("Thêm người"):
@@ -136,26 +133,21 @@ with st.popover("⚙️ Cập nhật dữ liệu", use_container_width=True):
                      conn.update(data=df_up); st.cache_data.clear(); st.rerun()
 
 st.divider()
-
-# --- GIAO DIỆN TÌM KIẾM & LỌC TRANG CHỦ ---
+# --- GIAO DIỆN TRANG CHỦ GIỮ NGUYÊN ---
+# (Phần code hiển thị trang chủ bên dưới tiếp tục giữ đúng bản chuẩn của bạn)
 view_mode = st.radio("Chế độ xem", ["Xem theo Hoa", "Xem theo Người"], horizontal=True, label_visibility="collapsed")
-
-# --- THÊM RADIO BUTTON LỌC PHẨM Ở TRANG CHỦ ---
 filter_type_main = st.radio("Chọn phẩm:", ["Tất cả", "Đỏ", "Cam", "Tím", "Lam", "Lục"], horizontal=True, key="main_filter_type")
-
 c1, c2, c3 = st.columns([2, 1, 1])
 with c1: search = st.text_input("Tìm kiếm tên hoa...", label_visibility="collapsed")
 with c2: s_o_filter = st.selectbox("Lọc theo người", ["Tất cả"] + all_owners, label_visibility="collapsed")
 with c3: no_owner_only = st.checkbox("🔍 Chưa có chủ")
 
-# LOGIC LỌC TỔNG HỢP
 f_df = df.copy()
 if filter_type_main != "Tất cả": f_df = f_df[f_df['Type'] == filter_type_main]
 if search: f_df = f_df[f_df['Flower'].str.contains(search, case=False, na=False)]
 if s_o_filter != "Tất cả": f_df = f_df[f_df[s_o_filter].astype(str).str.upper() == 'X']
 if no_owner_only: f_df = f_df[f_df['owners_list'].map(len) == 0]
 
-# --- HIỂN THỊ KẾT QUẢ ---
 if view_mode == "Xem theo Hoa":
     st.write(f"Kết quả: **{len(f_df)}** loài hoa {' (Admin Mode)' if st.session_state.admin_mode else ''}")
     for _, row in f_df.iterrows():
@@ -183,7 +175,6 @@ else:
             tags = "".join([f"<span class='flower-inline-tag' style='background:{get_color_by_type(r['Type'])}'>{r['Flower']}</span>" for _, r in p_f.iterrows()])
             st.markdown(f'<div class="person-container">{tags}</div>', unsafe_allow_html=True)
 
-# --- ADMIN LOGIN Ở CUỐI TRANG ---
 st.write("<br><br>", unsafe_allow_html=True)
 st.divider()
 c_a1, c_a2, c_a3 = st.columns([2, 1, 2])
